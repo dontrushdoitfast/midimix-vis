@@ -35,6 +35,13 @@
             box-sizing: border-box;
         }
 
+        button,
+        input,
+        textarea {
+            text-transform: inherit;
+            font-family: inherit;
+        }
+
         body {
             margin: 0;
             padding: 20px;
@@ -42,7 +49,7 @@
             color: var(--text-main);
             font-family: 'Helvetica Neue', Arial, sans-serif;
             font-weight: 700;
-            text-transform: uppercase;
+            /* text-transform: uppercase; removed to enforce only on headers */
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -196,6 +203,7 @@
         }
 
         .header-cell {
+            text-transform: uppercase;
             background: var(--bg-strip);
             padding: 8px 4px;
             display: flex;
@@ -444,24 +452,46 @@
             text-shadow: 0 1px 2px black;
         }
 
-        /* Color Picker Popover */
-        .color-dots {
+        /* Discrete Color Picker Styles */
+        .color-popover-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 999;
+            cursor: default;
+        }
+
+        .color-popover {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            background: #222;
+            border: 1px solid #444;
+            padding: 6px;
+            border-radius: 4px;
+            z-index: 1000;
             display: flex;
             gap: 4px;
-            justify-content: center;
-            margin-top: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         }
 
-        .dot {
-            width: 12px;
-            height: 12px;
+        .led-trigger {
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             cursor: pointer;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5), 0 0 2px rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
         }
 
-        .dot:hover {
-            transform: scale(1.2);
+        .led-trigger:hover {
+            filter: brightness(1.2);
+            box-shadow: 0 0 4px currentColor;
         }
 
         .file-input {
@@ -568,18 +598,42 @@
             );
         };
 
-        const ColorPicker = ({ selected, onSelect }) => (
-            <div className="color-dots">
-                {COLORS.map(c => (
+        const DiscreteColorPicker = ({ selected, onSelect }) => {
+            const [isOpen, setIsOpen] = useState(false);
+
+            return (
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    {/* LED Trigger */}
                     <div
-                        key={c}
-                        className="dot"
-                        style={{ background: c, borderColor: selected === c ? 'white' : 'transparent' }}
-                        onClick={(e) => { e.stopPropagation(); onSelect(c); }}
+                        className="led-trigger"
+                        style={{ background: selected || '#333', color: selected || '#333' }}
+                        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+                        title="Change Color"
                     />
-                ))}
-            </div>
-        );
+
+                    {/* Popover */}
+                    {isOpen && (
+                        <>
+                            <div className="color-popover-backdrop" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }} />
+                            <div className="color-popover">
+                                {COLORS.map(c => (
+                                    <div
+                                        key={c}
+                                        className="led-trigger" // reuse led style for dots
+                                        style={{ width: '12px', height: '12px', background: c, borderColor: selected === c ? 'white' : 'transparent' }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSelect(c);
+                                            setIsOpen(false);
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        };
 
         const Knob = ({ label, onChangeLabel, variant = 'variant-black' }) => (
             <div className="flex-col flex-center">
@@ -611,13 +665,15 @@
 
             return (
                 <div className={`header-cell ${isConnectedRight ? 'connected-right' : ''}`} style={style}>
-                    <EditableText
-                        value={title}
-                        onChange={onChangeTitle}
-                        onShiftClick={span > 1 ? onSplit : undefined}
-                        style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}
-                    />
-                    <ColorPicker selected={color} onSelect={onChangeColor} />
+                    <div className="flex-center gap-2">
+                        <EditableText
+                            value={title}
+                            onChange={onChangeTitle}
+                            onShiftClick={span > 1 ? onSplit : undefined}
+                            style={{ fontWeight: 600, fontSize: '14px' }} // removed marginBottom
+                        />
+                        <DiscreteColorPicker selected={color} onSelect={onChangeColor} />
+                    </div>
                 </div>
             );
         };
@@ -801,49 +857,73 @@
                 const groups = [];
                 let currentGroup = null;
 
-                data.strips.forEach((strip, i) => {
+                // Combine strips and master for calculation
+                const allUnits = [...data.strips, { ...data.master, isMaster: true }];
+
+                allUnits.forEach((unit, i) => {
                     if (!currentGroup) {
-                        currentGroup = { name: strip.name, color: strip.color, indices: [i] };
+                        currentGroup = { name: unit.name, color: unit.color, indices: [i] };
                     } else {
-                        // Check if we should merge
-                        // We merge if name matches. Color should match too for visual consistency,
-                        // but user specifically asked for shared titles.
-                        // Let's enforce Name Equality as the grouper.
-                        if (strip.name === currentGroup.name) {
+                        if (unit.name === currentGroup.name) {
                             currentGroup.indices.push(i);
                         } else {
                             groups.push(currentGroup);
-                            currentGroup = { name: strip.name, color: strip.color, indices: [i] };
+                            currentGroup = { name: unit.name, color: unit.color, indices: [i] };
                         }
                     }
                 });
                 if (currentGroup) groups.push(currentGroup);
                 return groups;
-            }, [data.strips]);
+            }, [data.strips, data.master]);
 
 
             // Handler for updating a group header
             const updateGroupHeader = (indices, newName, newColor) => {
                 const newStrips = [...data.strips];
+                let newMaster = { ...data.master };
+                let masterUpdated = false;
+
                 indices.forEach(idx => {
-                    if (newName !== undefined) newStrips[idx].name = newName;
-                    if (newColor !== undefined) newStrips[idx].color = newColor;
+                    if (idx < 8) {
+                        if (newName !== undefined) newStrips[idx].name = newName;
+                        if (newColor !== undefined) newStrips[idx].color = newColor;
+                    } else {
+                        // Master
+                        if (newName !== undefined) newMaster.name = newName;
+                        if (newColor !== undefined) newMaster.color = newColor;
+                        masterUpdated = true;
+                    }
                 });
-                setData({ ...data, strips: newStrips });
+
+                const updates = { strips: newStrips };
+                if (masterUpdated) updates.master = newMaster;
+
+                setData({ ...data, ...updates });
             };
 
             const splitGroup = (indices) => {
                 if (confirm("Split this group?")) {
                     const newStrips = [...data.strips];
+                    let newMaster = { ...data.master };
+                    let masterUpdated = false;
+
                     // Append numbers to make them unique
                     indices.forEach((idx, i) => {
-                        // Ensure we respect 12 char limit when appending
-                        const base = newStrips[idx].name;
-                        // "BASE X" -> take substring if needed
-                        // If base is "TEST", "TEST 1"
-                        newStrips[idx].name = `${base.substring(0, 10)} ${i + 1}`;
+                        const unit = idx < 8 ? newStrips[idx] : newMaster;
+                        const base = unit.name;
+                        const newName = `${base.substring(0, 10)} ${i + 1}`;
+
+                        if (idx < 8) {
+                            newStrips[idx].name = newName;
+                        } else {
+                            newMaster.name = newName;
+                            masterUpdated = true;
+                        }
                     });
-                    setData({ ...data, strips: newStrips });
+
+                    const updates = { strips: newStrips };
+                    if (masterUpdated) updates.master = newMaster;
+                    setData({ ...data, ...updates });
                 }
             };
 
@@ -879,16 +959,23 @@
                         <div className="grid-row headers-row">
                             {headerGroups.map((group, i) => {
                                 // Connectivity Check for HEADER
-                                // A header group connects to the next header group IF
-                                // The LAST strip of this group connects to the FIRST strip of the next group.
-                                // Logic: check strips[lastIndex].color === strips[lastIndex+1].color
                                 const lastIndex = group.indices[group.indices.length - 1];
-                                const nextStrip = data.strips[lastIndex + 1];
-                                const isConnected = nextStrip && (data.strips[lastIndex].color === nextStrip.color);
+
+                                // Determine next unit color
+                                let nextColor = null;
+                                if (lastIndex < 8) {
+                                    // if lastIndex is 7, next is Master (8)
+                                    // if lastIndex is 8 (Master), next is null
+                                    const nextIdx = lastIndex + 1;
+                                    if (nextIdx < 8) nextColor = data.strips[nextIdx].color;
+                                    else if (nextIdx === 8) nextColor = data.master.color;
+                                }
+
+                                const isConnected = nextColor && ((lastIndex < 8 ? data.strips[lastIndex].color : data.master.color) === nextColor);
 
                                 return (
                                     <HeaderCell
-                                        key={i}
+                                        key={group.indices.join('-')}
                                         title={group.name}
                                         color={group.color}
                                         span={group.indices.length}
@@ -899,30 +986,18 @@
                                     />
                                 )
                             })}
-                            <HeaderCell
-                                title={data.master.name}
-                                color={data.master.color}
-                                span={1}
-                                onChangeTitle={(v) => updateMaster({ ...data.master, name: v })}
-                                onChangeColor={(c) => updateMaster({ ...data.master, color: c })}
-                            />
                         </div>
 
                         {/* 2. Strips Row */}
                         <div className="grid-row strips-row">
                             {data.strips.map((s, i) => {
                                 // Determine connectivity
-                                // Connected if next strip exists AND colors match AND colors are not default
-                                // Actually, user said "removing them when two adjacent channels have the same color"
-                                // If default color (#2c2e33), we usually want gaps? Or does "same color" apply to default too?
-                                // Let's apply to all colors. If both are default, they merge. 
-                                // BUT default usually implies distinct generic channels. merging them might look weird if they are all merged.
-                                // Let's say: if colors match AND (color != Default OR explicitly grouped?)
-                                // The user prompt: "removing them when two adjacent channels have the same color?"
-                                // Let's try matching ANY color.
-                                // EXCEPT: The transition to Master (last col)
-                                const nextStrip = data.strips[i + 1];
-                                const isConnected = nextStrip && (s.color === nextStrip.color);
+                                // If i=7 (last strip), check against Master (fake index 8)
+                                let nextColor = null;
+                                if (i < 7) nextColor = data.strips[i + 1].color;
+                                else if (i === 7) nextColor = data.master.color;
+
+                                const isConnected = nextColor && (s.color === nextColor);
 
                                 return (
                                     <Strip
