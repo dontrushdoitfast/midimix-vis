@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Midimix Visualizer</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #1a1b1e;
+            --bg-panel: #25262b;
+            --bg-strip: #2c2e33;
+            --text-main: #c1c2c5;
+            --text-dim: #909296;
+            --accent: #339af0;
+            --border: #373a40;
+            --knob-size: 40px;
+            --fader-height: 120px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Utility */
+        .flex-col {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .flex-center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gap-2 {
+            gap: 8px;
+        }
+
+        .gap-4 {
+            gap: 16px;
+        }
+
+        /* Components */
+        .app-header {
+            width: 100%;
+            max-width: 1000px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px 20px;
+            background: var(--bg-panel);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .btn {
+            background: var(--bg-strip);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--border);
+            color: white;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            /* 9 equal columns */
+            gap: 4px;
+            background: var(--bg-panel);
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            max-width: 1200px;
+            /* Prevent board from stretching too tall */
+            align-items: stretch;
+        }
+
+        .strip {
+            background: var(--bg-strip);
+            border-radius: 4px;
+            padding: 12px 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+            border-top: 4px solid transparent;
+            /* For strip color */
+        }
+
+        .strip-header {
+            width: 100%;
+            text-align: center;
+        }
+
+        .editable-input {
+            background: transparent;
+            border: 1px solid transparent;
+            color: inherit;
+            font-family: inherit;
+            font-size: inherit;
+            text-align: center;
+            width: 100%;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .editable-input:hover {
+            border-color: var(--border);
+        }
+
+        .editable-input:focus {
+            border-color: var(--accent);
+            background: rgba(0, 0, 0, 0.2);
+            outline: none;
+        }
+
+        .knob-container {
+            position: relative;
+            width: var(--knob-size);
+            height: var(--knob-size);
+            border-radius: 50%;
+            background: #1a1a1a;
+            border: 2px solid #444;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .knob-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 50%;
+            background: white;
+            transform-origin: top center;
+            transform: translate(-50%, 0) rotate(180deg);
+            /* Pointing up by default seems wrong, usually they start around 7 o'clock. Visual only for now. */
+        }
+
+        /* Realistic Knob Look */
+        .knob {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #444, #111);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .knob::after {
+            content: '';
+            width: 4px;
+            height: 40%;
+            background: white;
+            position: absolute;
+            top: 10%;
+            border-radius: 2px;
+            pointer-events: none;
+        }
+
+        .btn-hw {
+            width: 100%;
+            height: 24px;
+            background: #333;
+            border: 1px solid #111;
+            border-radius: 2px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            color: #aaa;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+        }
+
+        .btn-hw.active {
+            background: #f03e3e;
+            color: white;
+            box-shadow: 0 0 10px rgba(240, 62, 62, 0.4);
+        }
+
+        .btn-hw.mute.active {
+            background: #fab005;
+            color: black;
+            box-shadow: 0 0 8px rgba(250, 176, 5, 0.4);
+        }
+
+        .fader-track {
+            width: 6px;
+            height: var(--fader-height);
+            background: #111;
+            border-radius: 3px;
+            position: relative;
+            margin: 10px 0;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .fader-cap {
+            width: 30px;
+            height: 50px;
+            background: linear-gradient(180deg, #555, #222);
+            border: 1px solid #000;
+            border-radius: 2px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            /* Default center */
+            transform: translate(-50%, -50%);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            cursor: ns-resize;
+        }
+
+        .fader-cap::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            margin-top: -1px;
+            left: 2px;
+            right: 2px;
+            height: 2px;
+            background: white;
+            opacity: 0.5;
+        }
+
+        .label-sm {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 2px;
+        }
+
+        /* Master Section */
+        .master-section {
+            grid-column: 9;
+            background: #202227;
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            /* Align to bottom like requests */
+            padding: 12px;
+            gap: 16px;
+        }
+
+        /* Color Picker Popover */
+        .color-dots {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+            margin-top: 4px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .dot:hover {
+            transform: scale(1.2);
+        }
+
+        .file-input {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // --- Data Models & Defaults ---
+        const COLORS = [
+            '#2c2e33', // Default Dark
+            '#d9480f', // Red
+            '#2b8a3e', // Green
+            '#1971c2', // Blue
+            '#e67700', // Yellow
+            '#862e9c', // Grape
+        ];
+
+        const DEFAULT_STRIP = {
+            name: 'CH',
+            color: COLORS[0],
+            knob1: 'HI',
+            knob2: 'MID',
+            knob3: 'LO',
+            btn1: 'MUTE',
+            btn2: 'REC',
+            fader: 'VOL'
+        };
+
+        // Function to generate fresh data to avoid reference issues
+        const getInitialData = () => ({
+            strips: Array(8).fill(null).map((_, i) => ({ ...DEFAULT_STRIP, name: `CH ${i + 1}` })),
+            master: {
+                name: 'MASTER',
+                color: COLORS[0],
+                btn1: 'BANK L',
+                btn2: 'BANK R',
+                fader: 'MASTER'
+            }
+        });
+
+        // --- Components ---
+
+        const EditableText = ({ value, onChange, className = '', style = {} }) => {
+            const [isEditing, setIsEditing] = useState(false);
+            const [tempValue, setTempValue] = useState(value);
+            const inputRef = useRef(null);
+
+            useEffect(() => { setTempValue(value); }, [value]);
+            useEffect(() => {
+                if (isEditing && inputRef.current) inputRef.current.select();
+            }, [isEditing]);
+
+            const handleBlur = () => {
+                setIsEditing(false);
+                onChange(tempValue);
+            };
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Enter') handleBlur();
+                if (e.key === 'Escape') {
+                    setTempValue(value);
+                    setIsEditing(false);
+                }
+            };
+
+            if (isEditing) {
+                return (
+                    <input
+                        ref={inputRef}
+                        className={`editable-input ${className}`}
+                        style={style}
+                        value={tempValue}
+                        onChange={(e) => setTempValue(e.target.value)}
+                        onBlur={handleBlur}
+                        onKeyDown={handleKeyDown}
+                        autoFocus
+                    />
+                );
+            }
+
+            return (
+                <div
+                    className={`editable-input ${className}`}
+                    style={{ ...style, cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    onClick={() => setIsEditing(true)}
+                    title="Click to edit"
+                >
+                    {value || '\u00A0'}
+                </div>
+            );
+        };
+
+        const ColorPicker = ({ selected, onSelect }) => (
+            <div className="color-dots">
+                {COLORS.map(c => (
+                    <div
+                        key={c}
+                        className="dot"
+                        style={{ background: c, borderColor: selected === c ? 'white' : 'transparent' }}
+                        onClick={() => onSelect(c)}
+                    />
+                ))}
+            </div>
+        );
+
+        const Knob = ({ label, onChangeLabel }) => (
+            <div className="flex-col flex-center">
+                <EditableText value={label} onChange={onChangeLabel} className="label-sm" />
+                <div className="knob"></div>
+            </div>
+        );
+
+        const Strip = ({ index, data, updateStrip }) => {
+            const setField = (field, val) => updateStrip(index, { ...data, [field]: val });
+
+            return (
+                <div className="strip" style={{ borderTopColor: data.color === COLORS[0] ? 'transparent' : data.color }}>
+                    <div className="strip-header">
+                        <EditableText
+                            value={data.name}
+                            onChange={(v) => setField('name', v)}
+                            style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}
+                        />
+                        <ColorPicker selected={data.color} onSelect={(c) => setField('color', c)} />
+                    </div>
+
+                    <div className="flex-col gap-4">
+                        <Knob label={data.knob1} onChangeLabel={(v) => setField('knob1', v)} />
+                        <Knob label={data.knob2} onChangeLabel={(v) => setField('knob2', v)} />
+                        <Knob label={data.knob3} onChangeLabel={(v) => setField('knob3', v)} />
+                    </div>
+
+                    <div className="flex-col gap-2" style={{ width: '100%' }}>
+                        <button className="btn-hw mute active" onClick={(e) => e.target.classList.toggle('active')}>
+                            <EditableText value={data.btn1} onChange={(v) => setField('btn1', v)} />
+                        </button>
+                        <button className="btn-hw" onClick={(e) => e.target.classList.toggle('active')}>
+                            <EditableText value={data.btn2} onChange={(v) => setField('btn2', v)} />
+                        </button>
+                    </div>
+
+                    <div className="fader-track">
+                        <div className="fader-cap"></div>
+                    </div>
+
+                    <EditableText value={data.fader} onChange={(v) => setField('fader', v)} className="label-sm" />
+                </div>
+            );
+        };
+
+        const MasterSection = ({ data, updateMaster }) => {
+            // Helper to update fields easily in the same way as strings
+            const setField = (field, val) => updateMaster({ ...data, [field]: val });
+
+            return (
+                <div className="strip" style={{ borderTopColor: data.color === COLORS[0] ? 'transparent' : data.color }}>
+                    <div className="strip-header">
+                        <EditableText
+                            value={data.name}
+                            onChange={(v) => setField('name', v)}
+                            style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}
+                        />
+                        <ColorPicker selected={data.color} onSelect={(c) => setField('color', c)} />
+                    </div>
+
+                    {/* Spacer to push content down to match standard strips (Knobs take up ~180px visually) */}
+                    <div style={{ flex: 1 }}></div>
+
+                    <div className="flex-col gap-2" style={{ width: '100%' }}>
+                        <button className="btn-hw" onClick={(e) => e.target.classList.toggle('active')}>
+                            <EditableText value={data.btn1} onChange={(v) => setField('btn1', v)} />
+                        </button>
+                        <button className="btn-hw" onClick={(e) => e.target.classList.toggle('active')}>
+                            <EditableText value={data.btn2} onChange={(v) => setField('btn2', v)} />
+                        </button>
+                    </div>
+
+                    <div className="fader-track" style={{ height: 'var(--fader-height)' }}>
+                        {/* Positioned fader cap */}
+                        <div className="fader-cap" style={{ top: '70%' }}></div>
+                    </div>
+                    <EditableText value={data.fader} onChange={(v) => setField('fader', v)} className="label-sm" />
+                </div>
+            );
+        };
+
+        // --- Main App Logic ---
+
+        const App = () => {
+            const [data, setData] = useState(getInitialData);
+            const [isLoaded, setIsLoaded] = useState(false);
+
+            // Load from LocalStorage on mount
+            useEffect(() => {
+                const saved = localStorage.getItem('midimix-setup');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        // Migration/Robustness: Ensure master has new structure if old save used
+                        if (!parsed.master.name) {
+                            parsed.master = {
+                                ...parsed.master,
+                                name: 'MASTER',
+                                color: COLORS[0],
+                                btn1: 'BANK L',
+                                btn2: 'BANK R'
+                            };
+                        }
+                        setData(parsed);
+                    } catch (e) { console.error("Failed to load save", e); }
+                }
+                setIsLoaded(true);
+            }, []);
+
+            // Auto-save
+            useEffect(() => {
+                if (isLoaded) {
+                    localStorage.setItem('midimix-setup', JSON.stringify(data));
+                }
+            }, [data, isLoaded]);
+
+            const updateStrip = (idx, newStrip) => {
+                const newStrips = [...data.strips];
+                newStrips[idx] = newStrip;
+                setData({ ...data, strips: newStrips });
+            };
+
+            const updateMaster = (newMaster) => setData({ ...data, master: newMaster });
+
+            const handleDownload = async () => {
+                const jsonStr = JSON.stringify(data, null, 2);
+                const filename = `midimix-setup-${new Date().toISOString().slice(0, 10)}.json`;
+
+                // Try modern File System Access API
+                if (window.showSaveFilePicker) {
+                    try {
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: filename,
+                            types: [{
+                                description: 'JSON Files',
+                                accept: { 'application/json': ['.json'] },
+                            }],
+                        });
+                        const writable = await handle.createWritable();
+                        await writable.write(jsonStr);
+                        await writable.close();
+                        return; // Success
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            console.error('File Picker failed, falling back', err);
+                        } else {
+                            return; // User cancelled
+                        }
+                    }
+                }
+
+                // Fallback to classic download
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            const handleUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const json = JSON.parse(ev.target.result);
+                        if (json.strips && json.master) {
+                            setData(json);
+                        } else {
+                            alert("Invalid JSON format");
+                        }
+                    } catch (err) { alert("Failed to parse JSON"); }
+                };
+                reader.readAsText(file);
+                e.target.value = null; // Reset input so same file can be selected again
+            };
+
+            const handleReset = () => {
+                if (confirm("Reset all labels to default?")) {
+                    setData(getInitialData());
+                }
+            };
+
+            return (
+                <div className="flex-col items-center">
+                    <header className="app-header">
+                        <div className="flex-col">
+                            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'white' }}>MIDImix<span style={{ color: 'var(--accent)', fontWeight: 300 }}>Visualizer</span></h1>
+                            <span style={{ fontSize: '11px', color: '#666' }}>Hardware Mapping Memorandum</span>
+                        </div>
+                        <div className="flex-center gap-2">
+                            <button className="btn" onClick={handleReset}>Reset</button>
+                            <button className="btn" onClick={() => document.getElementById('upload').click()}>Load JSON</button>
+                            <input id="upload" type="file" className="file-input" accept=".json" onChange={handleUpload} />
+                            <button className="btn btn-primary" onClick={handleDownload}>Save JSON</button>
+                        </div>
+                    </header>
+
+                    <div className="board">
+                        {data.strips.map((s, i) => (
+                            <Strip key={i} index={i} data={s} updateStrip={updateStrip} />
+                        ))}
+                        <MasterSection data={data.master} updateMaster={updateMaster} />
+                    </div>
+
+                    <footer style={{ marginTop: '40px', color: '#444', fontSize: '12px' }}>
+                        Midimix Visualizer &bull; Single File App &bull; No Server Required
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+    </script>
+</body>
+
+</html>
