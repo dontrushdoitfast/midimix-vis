@@ -35,3 +35,8 @@ The visualizer is styled to match a specific custom MIDImix unit:
 
 -   **Core**: HTML5, CSS3, ES6+ JavaScript.
 -   **Libraries**: React 18, Babel Standalone (loaded via CDN for single-file portability). Created using Google Anti Gravity - I didn't write any code and it took a few hours of back and forth, starting with a stock image of the midmix.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Copyright (c) 2025 Henry Chin (@dontrushdoitfast).
