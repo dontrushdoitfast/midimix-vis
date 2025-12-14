@@ -18,13 +18,14 @@
 
     <style>
         :root {
-            --bg-dark: #1a1b1e;
-            --bg-panel: #25262b;
-            --bg-strip: #2c2e33;
-            --text-main: #c1c2c5;
-            --text-dim: #909296;
+            --bg-dark: #121212;
+            --bg-panel: #18191a;
+            --bg-strip: transparent;
+            /* Strips are transparent for unified hardware look */
+            --text-main: #eeeeee;
+            --text-dim: #888888;
             --accent: #339af0;
-            --border: #373a40;
+            --border: #333;
             --knob-size: 40px;
             --fader-height: 120px;
             --gap-size: 4px;
@@ -39,7 +40,9 @@
             padding: 20px;
             background: var(--bg-dark);
             color: var(--text-main);
-            font-family: 'Inter', sans-serif;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -119,12 +122,65 @@
             display: flex;
             flex-direction: column;
             background: var(--bg-panel);
-            padding: 10px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            padding: 20px;
+            border-radius: 6px;
+            border-top: 1px solid #333;
+            border-bottom: 2px solid #000;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
             max-width: 1200px;
             width: 100%;
+            position: relative;
+            /* For screws */
+        }
+
+        /* Screws */
+        .screw {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #333;
+            border-radius: 50%;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .screw::after,
+        .screw::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #111;
+        }
+
+        .screw::after {
+            width: 8px;
+            height: 2px;
+        }
+
+        .screw::before {
+            width: 2px;
+            height: 8px;
+        }
+
+        .screw.tl {
+            top: 8px;
+            left: 8px;
+        }
+
+        .screw.tr {
+            top: 8px;
+            right: 8px;
+        }
+
+        .screw.bl {
+            bottom: 8px;
+            left: 8px;
+        }
+
+        .screw.br {
+            bottom: 8px;
+            right: 8px;
         }
 
         .grid-row {
@@ -218,64 +274,126 @@
             outline: none;
         }
 
-        /* Knobs & Faders (Existing) */
-        .knob-container {
+        /* Custom Knobs */
+        .knob-wrapper {
             position: relative;
-            width: var(--knob-size);
-            height: var(--knob-size);
-            border-radius: 50%;
-            background: #1a1a1a;
-            border: 2px solid #444;
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
-        }
-
-        .knob {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #444, #111);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            position: relative;
+            width: 44px;
+            height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        .knob::after {
-            content: '';
-            width: 4px;
-            height: 40%;
-            background: white;
-            position: absolute;
-            top: 10%;
-            border-radius: 2px;
-            pointer-events: none;
+        .knob {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5), inset 0 -2px 4px rgba(0, 0, 0, 0.4);
+            transition: transform 0.1s;
         }
 
+        /* Knob Variants */
+        .knob.variant-black {
+            background:
+                repeating-linear-gradient(90deg,
+                    #111 0px,
+                    #111 2px,
+                    #222 3px,
+                    #222 4px);
+            border: 1px solid #000;
+        }
+
+        .knob.variant-black::after {
+            content: '';
+            width: 3px;
+            height: 45%;
+            background: white;
+            position: absolute;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 1px;
+        }
+
+        .knob.variant-wood {
+            background:
+                repeating-linear-gradient(90deg,
+                    #b08d55 0px,
+                    /* Darker Base */
+                    #b08d55 2px,
+                    #e0c090 3px,
+                    /* Lighter Ridge */
+                    #e0c090 4px);
+            border: 1px solid #8a6a3b;
+        }
+
+        .knob.variant-wood::after {
+            content: '';
+            width: 3px;
+            height: 45%;
+            background: white;
+            position: absolute;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 1px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .knob.variant-white {
+            background: linear-gradient(135deg, #ffffff, #e0e0e0);
+            border: 1px solid #ccc;
+        }
+
+        .knob.variant-white::after {
+            content: '';
+            width: 3px;
+            height: 45%;
+            background: #111;
+            position: absolute;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 1px;
+        }
+
+        /* Button Hardware Style */
         .btn-hw {
             width: 100%;
             height: 24px;
-            background: #333;
-            border: 1px solid #111;
+            background: #e0e0e0;
+            /* White plastic */
+            border: 1px solid #999;
             border-radius: 2px;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            color: #aaa;
+            box-shadow: 0 2px 0 #888;
+            color: #333;
             font-size: 10px;
-            text-transform: uppercase;
+            font-weight: 800;
             letter-spacing: 1px;
             cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .btn-hw:active {
+            transform: translateY(2px);
+            box-shadow: 0 0 0 #888;
         }
 
         .btn-hw.active {
-            background: #f03e3e;
-            color: white;
-            box-shadow: 0 0 10px rgba(240, 62, 62, 0.4);
+            background: #ffffff;
+            /* Lit/Active = Brighter White */
+            color: #000;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.6), inset 0 0 5px rgba(255, 255, 255, 0.8);
+            border-color: #fff;
         }
 
         .btn-hw.mute.active {
-            background: #fab005;
-            color: black;
-            box-shadow: 0 0 8px rgba(250, 176, 5, 0.4);
+            background: #ffffff;
+            /* Uniform white for all */
+            color: #000;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.6), inset 0 0 5px rgba(255, 255, 255, 0.8);
+            border-color: #fff;
         }
 
         .fader-track {
@@ -289,16 +407,18 @@
         }
 
         .fader-cap {
-            width: 30px;
-            height: 50px;
-            background: linear-gradient(180deg, #555, #222);
+            width: 40px;
+            /* Wider cap */
+            height: 18px;
+            /* Shorter, flatter cap */
+            background: linear-gradient(180deg, #333, #111);
             border: 1px solid #000;
-            border-radius: 2px;
+            border-radius: 1px;
             position: absolute;
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
             cursor: ns-resize;
         }
 
@@ -315,10 +435,13 @@
         }
 
         .label-sm {
-            font-size: 10px;
+            font-size: 11px;
             text-transform: uppercase;
-            color: var(--text-dim);
+            color: #ffffff;
+            /* High contrast */
+            font-weight: 700;
             margin-bottom: 2px;
+            text-shadow: 0 1px 2px black;
         }
 
         /* Color Picker Popover */
@@ -458,10 +581,12 @@
             </div>
         );
 
-        const Knob = ({ label, onChangeLabel }) => (
+        const Knob = ({ label, onChangeLabel, variant = 'variant-black' }) => (
             <div className="flex-col flex-center">
-                <EditableText value={label} onChange={onChangeLabel} className="label-sm" />
-                <div className="knob"></div>
+                <EditableText value={label} onChange={onChangeLabel} className="label-sm" style={{ color: '#fff', fontSize: '11px', fontWeight: 800, textShadow: '0 1px 2px black' }} />
+                <div className="knob-wrapper">
+                    <div className={`knob ${variant}`}></div>
+                </div>
             </div>
         );
 
@@ -517,9 +642,9 @@
                 <div className={`strip ${isConnectedRight ? 'connected-right' : ''}`} style={bgStyle}>
                     {/* Knobs */}
                     <div className="flex-col gap-4">
-                        <Knob label={data.knob1} onChangeLabel={(v) => setField('knob1', v)} />
-                        <Knob label={data.knob2} onChangeLabel={(v) => setField('knob2', v)} />
-                        <Knob label={data.knob3} onChangeLabel={(v) => setField('knob3', v)} />
+                        <Knob label={data.knob1} onChangeLabel={(v) => setField('knob1', v)} variant="variant-black" />
+                        <Knob label={data.knob2} onChangeLabel={(v) => setField('knob2', v)} variant="variant-wood" />
+                        <Knob label={data.knob3} onChangeLabel={(v) => setField('knob3', v)} variant="variant-white" />
                     </div>
 
                     {/* Buttons */}
@@ -745,6 +870,11 @@
                     </header>
 
                     <div className="board" key={resetKey}>
+                        <div className="screw tl"></div>
+                        <div className="screw tr"></div>
+                        <div className="screw bl"></div>
+                        <div className="screw br"></div>
+
                         {/* 1. Header Row */}
                         <div className="grid-row headers-row">
                             {headerGroups.map((group, i) => {
