@@ -612,10 +612,22 @@
 
             const updateMaster = (newMaster) => setData({ ...data, master: newMaster });
 
+            const [confirmReset, setConfirmReset] = useState(false);
+
+            useEffect(() => {
+                if (confirmReset) {
+                    const timer = setTimeout(() => setConfirmReset(false), 3000);
+                    return () => clearTimeout(timer);
+                }
+            }, [confirmReset]);
+
             const handleReset = () => {
-                if (confirm("Reset all labels to default?")) {
+                if (confirmReset) {
                     setData(getInitialData());
                     setResetKey(prev => prev + 1);
+                    setConfirmReset(false);
+                } else {
+                    setConfirmReset(true);
                 }
             };
 
@@ -719,7 +731,13 @@
                             <span style={{ fontSize: '11px', color: '#666' }}>Hardware Mapping Memorandum</span>
                         </div>
                         <div className="flex-center gap-2">
-                            <button className="btn" onClick={handleReset}>Reset</button>
+                            <button
+                                className="btn"
+                                onClick={handleReset}
+                                style={{ borderColor: confirmReset ? 'var(--accent)' : '' }}
+                            >
+                                {confirmReset ? 'Confirm Reset?' : 'Reset'}
+                            </button>
                             <button className="btn" onClick={() => document.getElementById('upload').click()}>Load JSON</button>
                             <input id="upload" type="file" className="file-input" accept=".json" onChange={handleUpload} />
                             <button className="btn btn-primary" onClick={handleDownload}>Save JSON</button>
