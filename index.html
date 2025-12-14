@@ -340,7 +340,7 @@
             knob2: 'MID',
             knob3: 'LO',
             btn1: 'MUTE',
-            btn2: 'REC',
+            btn2: 'REC ARM',
             fader: 'VOL'
         };
 
@@ -452,7 +452,7 @@
                         <button className="btn-hw mute active" onClick={(e) => e.target.classList.toggle('active')}>
                             <EditableText value={data.btn1} onChange={(v) => setField('btn1', v)} />
                         </button>
-                        <button className="btn-hw" onClick={(e) => e.target.classList.toggle('active')}>
+                        <button className="btn-hw active" onClick={(e) => e.target.classList.toggle('active')}>
                             <EditableText value={data.btn2} onChange={(v) => setField('btn2', v)} />
                         </button>
                     </div>
@@ -495,7 +495,7 @@
 
                     <div className="fader-track" style={{ height: 'var(--fader-height)' }}>
                         {/* Positioned fader cap */}
-                        <div className="fader-cap" style={{ top: '70%' }}></div>
+                        <div className="fader-cap"></div>
                     </div>
                     <EditableText value={data.fader} onChange={(v) => setField('fader', v)} className="label-sm" />
                 </div>
@@ -507,6 +507,8 @@
         const App = () => {
             const [data, setData] = useState(getInitialData);
             const [isLoaded, setIsLoaded] = useState(false);
+            // Add a version key to force full re-renders on reset
+            const [resetKey, setResetKey] = useState(0);
 
             // Load from LocalStorage on mount
             useEffect(() => {
@@ -591,6 +593,7 @@
                         const json = JSON.parse(ev.target.result);
                         if (json.strips && json.master) {
                             setData(json);
+                            setResetKey(prev => prev + 1); // Force re-render on load too
                         } else {
                             alert("Invalid JSON format");
                         }
@@ -603,6 +606,7 @@
             const handleReset = () => {
                 if (confirm("Reset all labels to default?")) {
                     setData(getInitialData());
+                    setResetKey(prev => prev + 1); // Forces all children to remount
                 }
             };
 
@@ -621,7 +625,7 @@
                         </div>
                     </header>
 
-                    <div className="board">
+                    <div className="board" key={resetKey}>
                         {data.strips.map((s, i) => (
                             <Strip key={i} index={i} data={s} updateStrip={updateStrip} />
                         ))}
