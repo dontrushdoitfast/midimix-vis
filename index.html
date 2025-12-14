@@ -431,8 +431,22 @@
         const Strip = ({ index, data, updateStrip }) => {
             const setField = (field, val) => updateStrip(index, { ...data, [field]: val });
 
+            // Convert hex to rgba for tint
+            const getTint = (hex) => {
+                if (!hex) return 'transparent';
+                const h = hex.replace('#', '');
+                const r = parseInt(h.substring(0, 2), 16);
+                const g = parseInt(h.substring(2, 4), 16);
+                const b = parseInt(h.substring(4, 6), 16);
+                return `rgba(${r},${g},${b},0.2)`;
+            };
+
+            const bgStyle = data.color === COLORS[0]
+                ? {} // Default dark
+                : { background: getTint(data.color), borderTopColor: data.color };
+
             return (
-                <div className="strip" style={{ borderTopColor: data.color === COLORS[0] ? 'transparent' : data.color }}>
+                <div className="strip" style={bgStyle}>
                     <div className="strip-header">
                         <EditableText
                             value={data.name}
@@ -470,8 +484,22 @@
             // Helper to update fields easily in the same way as strings
             const setField = (field, val) => updateMaster({ ...data, [field]: val });
 
+            // Convert hex to rgba for tint
+            const getTint = (hex) => {
+                if (!hex) return 'transparent';
+                const h = hex.replace('#', '');
+                const r = parseInt(h.substring(0, 2), 16);
+                const g = parseInt(h.substring(2, 4), 16);
+                const b = parseInt(h.substring(4, 6), 16);
+                return `rgba(${r},${g},${b},0.2)`;
+            };
+
+            const bgStyle = data.color === COLORS[0]
+                ? {} // Default dark
+                : { background: getTint(data.color), borderTopColor: data.color };
+
             return (
-                <div className="strip" style={{ borderTopColor: data.color === COLORS[0] ? 'transparent' : data.color }}>
+                <div className="strip" style={bgStyle}>
                     <div className="strip-header">
                         <EditableText
                             value={data.name}
