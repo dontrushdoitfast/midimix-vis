@@ -27,6 +27,7 @@
             --border: #373a40;
             --knob-size: 40px;
             --fader-height: 120px;
+            --gap-size: 4px;
         }
 
         * {
@@ -63,6 +64,14 @@
 
         .gap-4 {
             gap: 16px;
+        }
+
+        .text-truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            display: block;
         }
 
         /* Components */
@@ -105,32 +114,81 @@
             opacity: 0.9;
         }
 
+        /* BOARD LAYOUT */
         .board {
-            display: grid;
-            grid-template-columns: repeat(9, 1fr);
-            /* 9 equal columns */
-            gap: 4px;
+            display: flex;
+            flex-direction: column;
             background: var(--bg-panel);
             padding: 10px;
             border-radius: 12px;
             border: 1px solid var(--border);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
             max-width: 1200px;
-            /* Prevent board from stretching too tall */
-            align-items: stretch;
+            width: 100%;
+        }
+
+        .grid-row {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            width: 100%;
+        }
+
+        /* Header Row specific styling */
+        .headers-row {
+            margin-bottom: 0;
+            /* No gap between header and strip */
+        }
+
+        .header-cell {
+            background: var(--bg-strip);
+            padding: 8px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-top: 4px solid transparent;
+            /* Default to matching strip gap */
+            border-right: 4px solid var(--bg-panel);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .header-cell.connected-right {
+            border-right: 1px solid rgba(0, 0, 0, 0.2);
+            margin-right: 0;
+        }
+
+        .header-cell:first-child {
+            border-top-left-radius: 4px;
+        }
+
+        .header-cell:last-child {
+            border-top-right-radius: 4px;
+            border-right: none;
         }
 
         .strip {
             background: var(--bg-strip);
-            border-radius: 4px;
+            /* border-radius: 0 0 4px 4px; */
+            /* Bottom radius only */
             padding: 12px 6px;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 16px;
             position: relative;
-            border-top: 4px solid transparent;
-            /* For strip color */
+            /* Border Right handling for Gaps */
+            border-right: 4px solid var(--bg-panel);
+            /* Default Gap */
+        }
+
+        .strip.connected-right {
+            border-right: 1px solid rgba(0, 0, 0, 0.2);
+            /* Subtle divider */
+            margin-right: 0;
+        }
+
+        .strip:last-child {
+            border-right: none;
         }
 
         .strip-header {
@@ -160,6 +218,7 @@
             outline: none;
         }
 
+        /* Knobs & Faders (Existing) */
         .knob-container {
             position: relative;
             width: var(--knob-size);
@@ -170,19 +229,6 @@
             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
         }
 
-        .knob-indicator {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 2px;
-            height: 50%;
-            background: white;
-            transform-origin: top center;
-            transform: translate(-50%, 0) rotate(180deg);
-            /* Pointing up by default seems wrong, usually they start around 7 o'clock. Visual only for now. */
-        }
-
-        /* Realistic Knob Look */
         .knob {
             width: 40px;
             height: 40px;
@@ -251,7 +297,6 @@
             position: absolute;
             left: 50%;
             top: 50%;
-            /* Default center */
             transform: translate(-50%, -50%);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
             cursor: ns-resize;
@@ -274,20 +319,6 @@
             text-transform: uppercase;
             color: var(--text-dim);
             margin-bottom: 2px;
-        }
-
-        /* Master Section */
-        .master-section {
-            grid-column: 9;
-            background: #202227;
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-end;
-            /* Align to bottom like requests */
-            padding: 12px;
-            gap: 16px;
         }
 
         /* Color Picker Popover */
@@ -321,7 +352,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback, useRef } = React;
+        const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
         // --- Data Models & Defaults ---
         const COLORS = [
@@ -344,7 +375,6 @@
             fader: 'VOL'
         };
 
-        // Function to generate fresh data to avoid reference issues
         const getInitialData = () => ({
             strips: Array(8).fill(null).map((_, i) => ({ ...DEFAULT_STRIP, name: `CH ${i + 1}` })),
             master: {
@@ -358,7 +388,7 @@
 
         // --- Components ---
 
-        const EditableText = ({ value, onChange, className = '', style = {} }) => {
+        const EditableText = ({ value, onChange, onShiftClick, className = '', style = {}, maxLength = 12 }) => {
             const [isEditing, setIsEditing] = useState(false);
             const [tempValue, setTempValue] = useState(value);
             const inputRef = useRef(null);
@@ -388,9 +418,10 @@
                         className={`editable-input ${className}`}
                         style={style}
                         value={tempValue}
-                        onChange={(e) => setTempValue(e.target.value)}
+                        onChange={(e) => setTempValue(e.target.value.slice(0, maxLength))}
                         onBlur={handleBlur}
                         onKeyDown={handleKeyDown}
+                        maxLength={maxLength}
                         autoFocus
                     />
                 );
@@ -398,10 +429,16 @@
 
             return (
                 <div
-                    className={`editable-input ${className}`}
-                    style={{ ...style, cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                    onClick={() => setIsEditing(true)}
-                    title="Click to edit"
+                    className={`editable-input text-truncate ${className}`}
+                    style={{ ...style, cursor: 'text' }}
+                    onClick={(e) => {
+                        if (e.shiftKey && onShiftClick) {
+                            onShiftClick();
+                            return;
+                        }
+                        setIsEditing(true);
+                    }}
+                    title={onShiftClick ? "Click to edit, Shift+Click to split" : "Click to edit"}
                 >
                     {value || '\u00A0'}
                 </div>
@@ -415,7 +452,7 @@
                         key={c}
                         className="dot"
                         style={{ background: c, borderColor: selected === c ? 'white' : 'transparent' }}
-                        onClick={() => onSelect(c)}
+                        onClick={(e) => { e.stopPropagation(); onSelect(c); }}
                     />
                 ))}
             </div>
@@ -428,12 +465,43 @@
             </div>
         );
 
-        const Strip = ({ index, data, updateStrip }) => {
-            const setField = (field, val) => updateStrip(index, { ...data, [field]: val });
-
-            // Convert hex to rgba for tint
+        // Header Cell Component for the Shared Header Row
+        const HeaderCell = ({ title, color, span, onChangeTitle, onChangeColor, isConnectedRight, onSplit }) => {
             const getTint = (hex) => {
-                if (!hex) return 'transparent';
+                if (!hex || hex === COLORS[0]) return 'transparent';
+                const h = hex.replace('#', '');
+                const r = parseInt(h.substring(0, 2), 16);
+                const g = parseInt(h.substring(2, 4), 16);
+                const b = parseInt(h.substring(4, 6), 16);
+                return `rgba(${r},${g},${b},0.2)`;
+            };
+
+            const style = {
+                gridColumn: `span ${span}`,
+                background: color === COLORS[0] ? 'var(--bg-strip)' : getTint(color),
+                borderTopColor: color === COLORS[0] ? 'transparent' : color,
+                // If it's a default color, we want standard border behavior
+                // The connected look is handled by the strip row below
+            };
+
+            return (
+                <div className={`header-cell ${isConnectedRight ? 'connected-right' : ''}`} style={style}>
+                    <EditableText
+                        value={title}
+                        onChange={onChangeTitle}
+                        onShiftClick={span > 1 ? onSplit : undefined}
+                        style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}
+                    />
+                    <ColorPicker selected={color} onSelect={onChangeColor} />
+                </div>
+            );
+        };
+
+        const Strip = ({ data, updateStrip, isConnectedRight }) => {
+            const setField = (field, val) => updateStrip({ ...data, [field]: val });
+
+            const getTint = (hex) => {
+                if (!hex || hex === COLORS[0]) return 'transparent';
                 const h = hex.replace('#', '');
                 const r = parseInt(h.substring(0, 2), 16);
                 const g = parseInt(h.substring(2, 4), 16);
@@ -442,26 +510,19 @@
             };
 
             const bgStyle = data.color === COLORS[0]
-                ? {} // Default dark
-                : { background: getTint(data.color), borderTopColor: data.color };
+                ? {}
+                : { background: getTint(data.color) };
 
             return (
-                <div className="strip" style={bgStyle}>
-                    <div className="strip-header">
-                        <EditableText
-                            value={data.name}
-                            onChange={(v) => setField('name', v)}
-                            style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}
-                        />
-                        <ColorPicker selected={data.color} onSelect={(c) => setField('color', c)} />
-                    </div>
-
+                <div className={`strip ${isConnectedRight ? 'connected-right' : ''}`} style={bgStyle}>
+                    {/* Knobs */}
                     <div className="flex-col gap-4">
                         <Knob label={data.knob1} onChangeLabel={(v) => setField('knob1', v)} />
                         <Knob label={data.knob2} onChangeLabel={(v) => setField('knob2', v)} />
                         <Knob label={data.knob3} onChangeLabel={(v) => setField('knob3', v)} />
                     </div>
 
+                    {/* Buttons */}
                     <div className="flex-col gap-2" style={{ width: '100%' }}>
                         <button className="btn-hw mute active" onClick={(e) => e.target.classList.toggle('active')}>
                             <EditableText value={data.btn1} onChange={(v) => setField('btn1', v)} />
@@ -471,6 +532,7 @@
                         </button>
                     </div>
 
+                    {/* Fader */}
                     <div className="fader-track">
                         <div className="fader-cap"></div>
                     </div>
@@ -480,36 +542,23 @@
             );
         };
 
-        const MasterSection = ({ data, updateMaster }) => {
-            // Helper to update fields easily in the same way as strings
+        // Reuse strip logic for Master but customized
+        const MasterStrip = ({ data, updateMaster }) => {
             const setField = (field, val) => updateMaster({ ...data, [field]: val });
-
-            // Convert hex to rgba for tint
             const getTint = (hex) => {
-                if (!hex) return 'transparent';
+                if (!hex || hex === COLORS[0]) return 'transparent';
                 const h = hex.replace('#', '');
                 const r = parseInt(h.substring(0, 2), 16);
                 const g = parseInt(h.substring(2, 4), 16);
                 const b = parseInt(h.substring(4, 6), 16);
                 return `rgba(${r},${g},${b},0.2)`;
             };
-
             const bgStyle = data.color === COLORS[0]
-                ? {} // Default dark
-                : { background: getTint(data.color), borderTopColor: data.color };
+                ? {}
+                : { background: getTint(data.color) };
 
             return (
-                <div className="strip" style={bgStyle}>
-                    <div className="strip-header">
-                        <EditableText
-                            value={data.name}
-                            onChange={(v) => setField('name', v)}
-                            style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}
-                        />
-                        <ColorPicker selected={data.color} onSelect={(c) => setField('color', c)} />
-                    </div>
-
-                    {/* Spacer to push content down to match standard strips (Knobs take up ~180px visually) */}
+                <div className="strip" style={{ ...bgStyle, borderRight: 'none', borderRightWidth: '0' }}>
                     <div style={{ flex: 1 }}></div>
 
                     <div className="flex-col gap-2" style={{ width: '100%' }}>
@@ -522,49 +571,37 @@
                     </div>
 
                     <div className="fader-track" style={{ height: 'var(--fader-height)' }}>
-                        {/* Positioned fader cap */}
                         <div className="fader-cap"></div>
                     </div>
                     <EditableText value={data.fader} onChange={(v) => setField('fader', v)} className="label-sm" />
                 </div>
-            );
-        };
+            )
+        }
+
 
         // --- Main App Logic ---
 
         const App = () => {
             const [data, setData] = useState(getInitialData);
             const [isLoaded, setIsLoaded] = useState(false);
-            // Add a version key to force full re-renders on reset
             const [resetKey, setResetKey] = useState(0);
 
-            // Load from LocalStorage on mount
             useEffect(() => {
                 const saved = localStorage.getItem('midimix-setup');
                 if (saved) {
                     try {
                         const parsed = JSON.parse(saved);
-                        // Migration/Robustness: Ensure master has new structure if old save used
                         if (!parsed.master.name) {
-                            parsed.master = {
-                                ...parsed.master,
-                                name: 'MASTER',
-                                color: COLORS[0],
-                                btn1: 'BANK L',
-                                btn2: 'BANK R'
-                            };
+                            parsed.master = { ...parsed.master, name: 'MASTER', color: COLORS[0], btn1: 'BANK L', btn2: 'BANK R' };
                         }
                         setData(parsed);
-                    } catch (e) { console.error("Failed to load save", e); }
+                    } catch (e) { }
                 }
                 setIsLoaded(true);
             }, []);
 
-            // Auto-save
             useEffect(() => {
-                if (isLoaded) {
-                    localStorage.setItem('midimix-setup', JSON.stringify(data));
-                }
+                if (isLoaded) localStorage.setItem('midimix-setup', JSON.stringify(data));
             }, [data, isLoaded]);
 
             const updateStrip = (idx, newStrip) => {
@@ -575,34 +612,25 @@
 
             const updateMaster = (newMaster) => setData({ ...data, master: newMaster });
 
+            const handleReset = () => {
+                if (confirm("Reset all labels to default?")) {
+                    setData(getInitialData());
+                    setResetKey(prev => prev + 1);
+                }
+            };
+
             const handleDownload = async () => {
                 const jsonStr = JSON.stringify(data, null, 2);
                 const filename = `midimix-setup-${new Date().toISOString().slice(0, 10)}.json`;
-
-                // Try modern File System Access API
                 if (window.showSaveFilePicker) {
                     try {
-                        const handle = await window.showSaveFilePicker({
-                            suggestedName: filename,
-                            types: [{
-                                description: 'JSON Files',
-                                accept: { 'application/json': ['.json'] },
-                            }],
-                        });
+                        const handle = await window.showSaveFilePicker({ suggestedName: filename, types: [{ accept: { 'application/json': ['.json'] } }] });
                         const writable = await handle.createWritable();
                         await writable.write(jsonStr);
                         await writable.close();
-                        return; // Success
-                    } catch (err) {
-                        if (err.name !== 'AbortError') {
-                            console.error('File Picker failed, falling back', err);
-                        } else {
-                            return; // User cancelled
-                        }
-                    }
+                        return;
+                    } catch (err) { }
                 }
-
-                // Fallback to classic download
                 const blob = new Blob([jsonStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -621,22 +649,67 @@
                         const json = JSON.parse(ev.target.result);
                         if (json.strips && json.master) {
                             setData(json);
-                            setResetKey(prev => prev + 1); // Force re-render on load too
-                        } else {
-                            alert("Invalid JSON format");
+                            setResetKey(prev => prev + 1);
                         }
-                    } catch (err) { alert("Failed to parse JSON"); }
+                    } catch (err) { }
                 };
                 reader.readAsText(file);
-                e.target.value = null; // Reset input so same file can be selected again
+                e.target.value = null;
             };
 
-            const handleReset = () => {
-                if (confirm("Reset all labels to default?")) {
-                    setData(getInitialData());
-                    setResetKey(prev => prev + 1); // Forces all children to remount
+            // Calculation for Header Groups
+            // We need to produce an array of cells for the header row
+            // [ { type: 'strip', index: 0, span: 2 }, { type: 'master' ... } ]
+            const headerGroups = useMemo(() => {
+                const groups = [];
+                let currentGroup = null;
+
+                data.strips.forEach((strip, i) => {
+                    if (!currentGroup) {
+                        currentGroup = { name: strip.name, color: strip.color, indices: [i] };
+                    } else {
+                        // Check if we should merge
+                        // We merge if name matches. Color should match too for visual consistency,
+                        // but user specifically asked for shared titles.
+                        // Let's enforce Name Equality as the grouper.
+                        if (strip.name === currentGroup.name) {
+                            currentGroup.indices.push(i);
+                        } else {
+                            groups.push(currentGroup);
+                            currentGroup = { name: strip.name, color: strip.color, indices: [i] };
+                        }
+                    }
+                });
+                if (currentGroup) groups.push(currentGroup);
+                return groups;
+            }, [data.strips]);
+
+
+            // Handler for updating a group header
+            const updateGroupHeader = (indices, newName, newColor) => {
+                const newStrips = [...data.strips];
+                indices.forEach(idx => {
+                    if (newName !== undefined) newStrips[idx].name = newName;
+                    if (newColor !== undefined) newStrips[idx].color = newColor;
+                });
+                setData({ ...data, strips: newStrips });
+            };
+
+            const splitGroup = (indices) => {
+                if (confirm("Split this group?")) {
+                    const newStrips = [...data.strips];
+                    // Append numbers to make them unique
+                    indices.forEach((idx, i) => {
+                        // Ensure we respect 12 char limit when appending
+                        const base = newStrips[idx].name;
+                        // "BASE X" -> take substring if needed
+                        // If base is "TEST", "TEST 1"
+                        newStrips[idx].name = `${base.substring(0, 10)} ${i + 1}`;
+                    });
+                    setData({ ...data, strips: newStrips });
                 }
             };
+
 
             return (
                 <div className="flex-col items-center">
@@ -654,14 +727,71 @@
                     </header>
 
                     <div className="board" key={resetKey}>
-                        {data.strips.map((s, i) => (
-                            <Strip key={i} index={i} data={s} updateStrip={updateStrip} />
-                        ))}
-                        <MasterSection data={data.master} updateMaster={updateMaster} />
+                        {/* 1. Header Row */}
+                        <div className="grid-row headers-row">
+                            {headerGroups.map((group, i) => {
+                                // Connectivity Check for HEADER
+                                // A header group connects to the next header group IF
+                                // The LAST strip of this group connects to the FIRST strip of the next group.
+                                // Logic: check strips[lastIndex].color === strips[lastIndex+1].color
+                                const lastIndex = group.indices[group.indices.length - 1];
+                                const nextStrip = data.strips[lastIndex + 1];
+                                const isConnected = nextStrip && (data.strips[lastIndex].color === nextStrip.color);
+
+                                return (
+                                    <HeaderCell
+                                        key={i}
+                                        title={group.name}
+                                        color={group.color}
+                                        span={group.indices.length}
+                                        onChangeTitle={(v) => updateGroupHeader(group.indices, v, undefined)}
+                                        onChangeColor={(c) => updateGroupHeader(group.indices, undefined, c)}
+                                        isConnectedRight={isConnected}
+                                        onSplit={() => splitGroup(group.indices)}
+                                    />
+                                )
+                            })}
+                            <HeaderCell
+                                title={data.master.name}
+                                color={data.master.color}
+                                span={1}
+                                onChangeTitle={(v) => updateMaster({ ...data.master, name: v })}
+                                onChangeColor={(c) => updateMaster({ ...data.master, color: c })}
+                            />
+                        </div>
+
+                        {/* 2. Strips Row */}
+                        <div className="grid-row strips-row">
+                            {data.strips.map((s, i) => {
+                                // Determine connectivity
+                                // Connected if next strip exists AND colors match AND colors are not default
+                                // Actually, user said "removing them when two adjacent channels have the same color"
+                                // If default color (#2c2e33), we usually want gaps? Or does "same color" apply to default too?
+                                // Let's apply to all colors. If both are default, they merge. 
+                                // BUT default usually implies distinct generic channels. merging them might look weird if they are all merged.
+                                // Let's say: if colors match AND (color != Default OR explicitly grouped?)
+                                // The user prompt: "removing them when two adjacent channels have the same color?"
+                                // Let's try matching ANY color.
+                                // EXCEPT: The transition to Master (last col)
+                                const nextStrip = data.strips[i + 1];
+                                const isConnected = nextStrip && (s.color === nextStrip.color);
+
+                                return (
+                                    <Strip
+                                        key={i}
+                                        data={s}
+                                        updateStrip={(idx, d) => updateStrip(i, d)}
+                                        isConnectedRight={isConnected}
+                                    />
+                                );
+                            })}
+                            <MasterStrip data={data.master} updateMaster={updateMaster} />
+                        </div>
                     </div>
 
-                    <footer style={{ marginTop: '40px', color: '#444', fontSize: '12px' }}>
-                        Midimix Visualizer &bull; Single File App &bull; No Server Required
+                    <footer style={{ marginTop: '40px', color: '#444', fontSize: '12px', textAlign: 'center' }}>
+                        <p style={{ margin: '0 0 8px 0' }}>Midimix Visualizer &bull; Single File App &bull; No Server Required</p>
+                        <p style={{ margin: 0, color: '#666' }}>To merge columns, name them the same. Shift+Click a header to unmerge.</p>
                     </footer>
                 </div>
             );
